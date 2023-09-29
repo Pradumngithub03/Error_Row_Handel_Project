@@ -1,0 +1,151 @@
+------This is dataflow activities code --------
+
+{
+    "name": "Errorrowhandel_DF",
+    "properties": {
+        "type": "MappingDataFlow",
+        "typeProperties": {
+            "sources": [
+                {
+                    "dataset": {
+                        "referenceName": "salesIND_DS",
+                        "type": "DatasetReference"
+                    },
+                    "name": "SalesIND"
+                }
+            ],
+            "sinks": [
+                {
+                    "dataset": {
+                        "referenceName": "tblsalesBad_DS",
+                        "type": "DatasetReference"
+                    },
+                    "name": "sink1"
+                },
+                {
+                    "dataset": {
+                        "referenceName": "tblsales_DSet",
+                        "type": "DatasetReference"
+                    },
+                    "name": "sink2"
+                }
+            ],
+            "transformations": [
+                {
+                    "name": "Cdnsplit1"
+                },
+                {
+                    "name": "fileNamecolumnForErrorRows"
+                },
+                {
+                    "name": "fileNamecolumnforGoodRows"
+                }
+            ],
+            "scriptLines": [
+                "source(output(",
+                "          saleDate as string,",
+                "          salesItem as string,",
+                "          country as string,",
+                "          qunatity as string",
+                "     ),",
+                "     allowSchemaDrift: true,",
+                "     validateSchema: false,",
+                "     ignoreNoFilesFound: false) ~> SalesIND",
+                "SalesIND split(isNull(toDate(saleDate, 'dd-MMM-yyyy')),",
+                "     disjoint: false) ~> Cdnsplit1@(ErrorRows, GoodRows)",
+                "Cdnsplit1@ErrorRows derive(fileName = 'SalesIND_2023 - Sheet1.csv') ~> fileNamecolumnForErrorRows",
+                "Cdnsplit1@GoodRows derive(fileName = 'SalesIND_2023 - Sheet1.csv',",
+                "          saleDate = toDate(saleDate, 'dd-MMM-yyyy'),",
+                "          qunatity = toInteger(qunatity)) ~> fileNamecolumnforGoodRows",
+                "fileNamecolumnForErrorRows sink(allowSchemaDrift: true,",
+                "     validateSchema: false,",
+                "     input(",
+                "          saleDate as string,",
+                "          salesItem as string,",
+                "          country as string,",
+                "          qunatity as string,",
+                "          filesName as string",
+                "     ),",
+                "     deletable:false,",
+                "     insertable:true,",
+                "     updateable:false,",
+                "     upsertable:false,",
+                "     format: 'table',",
+                "     skipDuplicateMapInputs: true,",
+                "     skipDuplicateMapOutputs: true,",
+                "     errorHandlingOption: 'stopOnFirstError',",
+                "     mapColumn(",
+                "          saleDate,",
+                "          salesItem,",
+                "          country,",
+                "          qunatity,",
+                "          filesName = fileName",
+                "     )) ~> sink1",
+                "fileNamecolumnforGoodRows sink(allowSchemaDrift: true,",
+                "     validateSchema: false,",
+                "     input(",
+                "          saleDate as date,",
+                "          salesItem as string,",
+                "          country as string,",
+                "          qunatity as integer,",
+                "          filesName as string",
+                "     ),",
+                "     deletable:false,",
+                "     insertable:true,",
+                "     updateable:false,",
+                "     upsertable:false,",
+                "     format: 'table',",
+                "     skipDuplicateMapInputs: true,",
+                "     skipDuplicateMapOutputs: true,",
+                "     errorHandlingOption: 'stopOnFirstError',",
+                "     mapColumn(",
+                "          saleDate,",
+                "          salesItem,",
+                "          country,",
+                "          qunatity,",
+                "          filesName = fileName",
+                "     )) ~> sink2"
+            ]
+        }
+    }
+}
+
+
+
+
+------------------------------------This is pipeline code-----------------------------------
+
+
+
+{
+    "name": "ErrorRowsHandelPipeline",
+    "properties": {
+        "activities": [
+            {
+                "name": "Data flow1",
+                "type": "ExecuteDataFlow",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "dataflow": {
+                        "referenceName": "Errorrowhandel_DF",
+                        "type": "DataFlowReference"
+                    },
+                    "compute": {
+                        "coreCount": 8,
+                        "computeType": "General"
+                    },
+                    "traceLevel": "Fine"
+                }
+            }
+        ],
+        "annotations": []
+    }
+}
